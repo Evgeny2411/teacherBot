@@ -17,8 +17,6 @@ if 'generated' not in st.session_state:
     st.session_state['generated'] = []
 if 'past' not in st.session_state:
     st.session_state['past'] = []
-
-
 if 'messages' not in st.session_state:
     st.session_state['messages'] = bot.init_messages()
 
@@ -33,10 +31,13 @@ with container:
 
     if submit_button and user_input:
         st.session_state['messages'].append((HumanMessage(content = user_input)))
-        if bot.process_message(user_input):
+        processing_result = bot.process_message(user_input)
+        if processing_result == 'Fine':
             bot_response = bot.generate_response(st.session_state['messages'])
-        else:
+        elif processing_result == 'Offensive':
             bot_response = bot.offensive_input(st.session_state['messages'])
+        elif processing_result == 'Distracted':
+            bot_response = bot.get_attention(st.session_state['messages'])
 
         st.session_state['messages'].append((AIMessage(content = bot_response)))
         st.session_state['past'].append(user_input)

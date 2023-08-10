@@ -117,11 +117,27 @@ class ColumnDivisionBot:
     #     )
     #     return response.choices[0].message["content"]
 
+    def check_distraction(self, input):
+        system_message = f"""
+        You are friendly assistant at individual classes of math teacher bot and 4th grade kid.\
+        Your task is to detect is kid trying to evade the topic and distract the teacher based on kid's message.
+        
+        Your answer must be Y or N for Y if kid is distracting, and N if not.
+        """
+        messages = [
+            SystemMessage(content = system_message),
+            HumanMessage(content = f"Kid message: {input}"),
+        ]
+        final_response = self.chat(messages).content
+        logging.info("DISTRACTION DETECTION : %s", final_response)
+        return final_response
+
     def offensive_input(self, chat_messages):
         system_message = f"""
         You are a math teacher that give individual lesson of column dividing to some kid, but instead of learning he says something, \
         that didn't pass your moderation test.
-        Respond in a friendly tone, for motivating go back to learning based on his answer. \
+        Respond in a friendly tone, for motivating go back to learning based on his answer by giving some\
+         fun example why he must keep studying. \
         It's very important to turn dialogue back to learning main topic of column division.
         """
         messages = [
@@ -130,6 +146,22 @@ class ColumnDivisionBot:
         ]
         final_response = self.chat(chat_messages + messages).content
         logging.info("MODEL RESPONSE TO OFFENSIVE : %s", final_response)
+        return final_response
+
+    def get_attention(self, chat_messages):
+        system_message = f"""
+        You are a math teacher that give individual lesson of column dividing to some kid, but instead of learning he trying \
+        to distract your attention from teaching.
+        Respond in a friendly tone, for motivating go back to learning based on his answer by giving some\
+         fun example why he must keep studying. \
+        It's very important to turn dialogue back to learning main topic of column division.
+        """
+        messages = [
+            SystemMessage(content = system_message),
+            HumanMessage(content = chat_messages[-1].content),
+        ]
+        final_response = self.chat(chat_messages + messages).content
+        logging.info("MODEL RESPONSE TO DISTRACTION : %s", final_response)
         return final_response
 
 
@@ -141,11 +173,16 @@ class ColumnDivisionBot:
         if moderation_output["flagged"]:
             logging.info("Input FLAGGED by Moderation API.")
             logging.info("USER INPUT : %s", user_input)
-            return False
+            return 'Offensive'
 
-        if debug: logging.info("Input passed moderation check.")
+        if debug: logging.info("Input passed MODERATION check.")
 
-        return True
+        if 'Y' in self.check_distraction(user_input):
+            if debug: logging.info("Input failed DISTRACTION check.")
+            return 'Distracted'
+        else:
+            if debug: logging.info("Input passed DISTRACTION check.")
+            return 'Fine'
 
 
 # def eval_with_rubric(test_set, assistant_answer):
