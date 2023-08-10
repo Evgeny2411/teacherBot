@@ -1,15 +1,10 @@
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ChatMessageHistory
-import logging
-#
-# Ideas: moderate is message from kid is ok with openai things
-# check if kid writing something that not close to topic and motivate to turn back to learning
-#
-#
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from dotenv import load_dotenv, find_dotenv
 import openai
 import os
+import logging
 
 
 class ColumnDivisionBot:
@@ -18,7 +13,8 @@ class ColumnDivisionBot:
         dotenv_path = find_dotenv()
         if dotenv_path:
             _ = load_dotenv(dotenv_path)
-        self.chat = ChatOpenAI(temperature = 0.5, openai_api_key=os.getenv('OPENAI_API_KEY'))
+        self.chat = ChatOpenAI(temperature = 0.5, openai_api_key=os.environ['OPENAI_API_KEY'])
+        openai.api_key = os.environ['OPENAI_API_KEY']
         try:
             self.setup_logging()
         except Exception as e:
@@ -30,48 +26,50 @@ class ColumnDivisionBot:
         Initializes context of bot and instructions of how to explain topic
         :return: array of messages history
         """
+
         memory = ChatMessageHistory()
         memory.add_message(
             SystemMessage(
                 content=
-                """Take on the role of a math teacher named Mathter with 10 years of experience. \
-                You must assume that kid know how to multiply and make simple division, so don't try to teach him to divide in general.
-                Your task is to individually teach 4th grade child column divide method. \
-                Avoid using hard vocabulary try visualise more. \
-                After explaining the topic, check if the child understands, and if not, \
-                continue teaching until he/she understands. Start a dialog in a playful way. Teach consistently \
-                step by step, not in one message. Iteratively ask if everything is clear, just like in real teacher do.
+                """Take on the role of experienced math teacher named Mathter.
+                Your task is to individually teach 4th grade child column divide method with visual examples of this method.
+                Assume that kid know how to multiply and make simple division, so don't try to teach him to divide in general.
+                You can provide step-by-step instructions, tips, and examples to make division easier for kids.
+                Avoid using hard vocabulary.
+                After explaining the topic, check if the child understands, and if not,
+                continue teaching until he/she understands. Start a dialog in a playful way.
+                Iteratively ask if everything is clear, just like in real teacher do.                
+                Always remember to write some motivation to start learning in your messages.
                 
-                Don't use examples, where answer of dividing is single-digit number, so examples could be more tricky.
+                Don't use examples, where answer of dividing is single-digit number or too big numbers.
                 
-                For visualising your examples use such format, but different numbers:
-                " 
-                Let's divide 72 by 3.
+                Here's an example how you can explain concept: Dividing 168 by 3
+                1.To divide 168 by 3 using the column method, you can follow these step-by-step instructions:
+                2.Start by writing the dividend (168) on the left and the divisor (3) on the left of the dividend.
+                3.Begin dividing digit by digit from left to right. The first digit of the dividend is 1, which is smaller than the divisor 3. So, bring down the next digit, which is 6, and write it next to the 1.
+                4.Now, divide 16 (the first two digits) by 3. The quotient is 5, which you write above the 6.
+                5.Multiply the divisor (3) by the quotient (5), which gives you 15. Write this below the 16.
+                6.Subtract 15 from 16 to find the remainder, which is 1. Write this below the line.
+                7.Bring down the next digit, which is 8, and write it next to the remainder.
+                8.Now, divide 18 (the new two-digit number) by 3. The quotient is 6, which you write above the 8.
+                9.Multiply the divisor (3) by the quotient (6), which gives you 18. Write this below the 18.
+                10.Subtract 18 from 18 to find the remainder, which is 0.
+                11.Since there are no more digits to bring down, and the remainder is 0, the division is complete.
+                12.The quotient is the combination of the quotients from each step, which is 56. So, 168 divided by 3 equals 56.
+                st.code(
+                   56
+                --------
+                  3 | 168
+                     - 15
+                     ------
+                       18
+                       - 18
+                       ------
+                         0
+                )
+                Give very much attention to visualising examples with such method!
                 
-                First step is to understand what is divisible and what is divider here. For this example, 72 is divisible, and\
-                 3 is divider we write down something like this:
-                 {72 | 3}.
-                 Cool, the next step is to start dividing digits from divider from left to right with some tricky things.
-                 Let's start with 7. We can fit 3 in 7 twice, means 6. So our writing will look like this:
-                 {72 | 3
-                 6}      
-                 So let's write our first digit for result - 2. We need to deal with difference between upper and lower number by  writing it lower of some horizontal line we write like this:
-                 {172 | 3
-                -1  -> 2 
-                 __
-                  1}
-                 Now for the third step. 3 doesn't fit into difference from previous step, so we take righter digit from our divisible - 2 and connect it to our difference from the right side.\
-                 So we get 12 as new number to divide. Everyone knows that 12 divide by 3 is 4 so this is out second digit. We just repeated previus step.
-                 {72 | 3
-                -6  -> 24
-                 __
-                 12 
-                -12
-                 __
-                  0} 
-                 As you can see, our difference is 0, so it's end of solution, our answer is 24! Good Job.
-                 "
-                Your first message should contain motivation to start learning, whatever user says.
+                After you explain one example, give one task to student and ask to solve it, if solution wrong, give one more example of the problem.
                 """
             ))
         return memory.messages
@@ -104,6 +102,7 @@ class ColumnDivisionBot:
             return self.generate_offensive_response(chat_messages)
         elif processing_result == 'Distracted':
             return self.generate_attention_response(chat_messages)
+
 
     def generate_bot_response(self, chat_messages: []) -> str:
         """
@@ -148,6 +147,7 @@ class ColumnDivisionBot:
         system_message = f"""
         You are friendly assistant at individual classes of math teacher bot and 4th grade kid.\
         Your task is to detect is kid trying to evade the topic and distract the teacher based on kid's message.
+        Keep in mind that kid just can have somekind of 'funny' style of texting, and could not trying to distract.
     
         Your answer must be Y or N for Y if kid is distracting, and N if not.
         Do not provide any additional information except for Y/N symbol.
@@ -197,7 +197,7 @@ class ColumnDivisionBot:
         to distract your attention from teaching.
         Respond in a friendly tone, for motivating go back to learning based on his answer by giving some\
          fun example why he must keep studying. \
-        It's very important to turn dialogue back to learning main topic of column division.
+        It's very important to turn dialogue back to last task you gave and give student another try.
         """
         messages = [
             SystemMessage(content = system_message),
@@ -227,7 +227,7 @@ class ColumnDivisionBot:
 
         if self.debug: logging.info("Input passed MODERATION check.")
 
-        if 'Y' in self.check_distraction(user_input):
+        if self.check_distraction(user_input):
             if self.debug: logging.info("Input failed DISTRACTION check.")
             return 'Distracted'
         else:
@@ -243,6 +243,7 @@ class ColumnDivisionBot:
         response = openai.Moderation.create(input=user_input)
         moderation_output = response["results"][0]
         return moderation_output
+
 
 
 
