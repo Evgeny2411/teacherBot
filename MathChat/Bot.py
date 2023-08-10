@@ -6,8 +6,8 @@ from langchain.prompts.chat import (
     HumanMessagePromptTemplate,
 )
 from langchain.chains import ConversationChain
-from langchain.memory import ConversationBufferMemory
-
+from langchain.memory import ChatMessageHistory
+import logging
 #
 # Ideas: moderate is message from kid is ok with openai things
 # check if kid writing something that not close to topic and motivate to turn back to learning
@@ -15,171 +15,186 @@ from langchain.memory import ConversationBufferMemory
 #
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from dotenv import load_dotenv, find_dotenv
+import openai
 import os
 
 _ = load_dotenv(find_dotenv())
 
 class ColumnDivisionBot:
     def __init__(self):
-        self.llm = ChatOpenAI(temperature = 0.5, openai_api_key=os.environ['OPENAI_API_KEY'])
-        self.memory = ConversationBufferMemory()
-        self.memory.save_context({"input": "Take on the role of a math teacher with 10 years of experience. \
-                 Your task is to individualy teach 4th grade child how to divide by a column. Use only simple words. \
-                 After explaining the topic, check if the child understands, and if not, \
-                 continue teaching until he/she understands. Start a dialog in a playful way. Teach consistently \
-                 step by step, not in one message. Iteratively ask if everything is clear, just like in real classes."},
-                                 {"output": "ok!"})
-        # SystemMessage(
-        #     content="Take on the role of a math teacher with 10 years of experience. \
-        #         Your task is to individualy teach 4th grade child how to divide by a column. Use only simple words. \
-        #         After explaining the topic, check if the child understands, and if not, \
-        #         continue teaching until he/she understands. Start a dialog in a playful way. Teach consistently \
-        #         step by step, not in one message. Iteratively ask if everything is clear, just like in real classes."
-        # )
-        self.conversation = ConversationChain(
-            llm = self.llm,
-            memory = self.memory,
-            verbose = False
-        )
+        self.chat = ChatOpenAI(temperature = 0.5, openai_api_key=os.environ['OPENAI_API_KEY'])
+        self.setup_logging()
 
-    def generate_response(self, chat_message):
-        response = self.conversation.predict(input = chat_message)
+    def init_messages(self):
+        memory = ChatMessageHistory()
+        memory.add_message(
+            SystemMessage(
+                content=
+                """Take on the role of a math teacher named Mathter with 10 years of experience. \
+                You must assume that kid know how to multiply and make simple division, so don't try to teach him to divide in general.
+                Your task is to individually teach 4th grade child column divide method. \
+                Avoid using hard vocabulary try visualise more. \
+                After explaining the topic, check if the child understands, and if not, \
+                continue teaching until he/she understands. Start a dialog in a playful way. Teach consistently \
+                step by step, not in one message. Iteratively ask if everything is clear, just like in real teacher do.
+                
+                Don't use examples, where answer of dividing is single-digit number, so examples could be more tricky.
+                
+                For visualising your examples use such format, but different numbers:
+                " 
+                Let's divide 72 by 3.
+                
+                First step is to understand what is divisible and what is divider here. For this example, 72 is divisible, and\
+                 3 is divider we write down something like this:
+                 {72 | 3}.
+                 Cool, the next step is to start dividing digits from divider from left to right with some tricky things.
+                 Let's start with 7. We can fit 3 in 7 twice, means 6. So our writing will look like this:
+                 {72 | 3
+                 6}      
+                 So let's write our first digit for result - 2. We need to deal with difference between upper and lower number by  writing it lower of some horizontal line we write like this:
+                 {172 | 3
+                -1  -> 2 
+                 __
+                  1}
+                 Now for the third step. 3 doesn't fit into difference from previous step, so we take righter digit from our divisible - 2 and connect it to our difference from the right side.\
+                 So we get 12 as new number to divide. Everyone knows that 12 divide by 3 is 4 so this is out second digit. We just repeated previus step.
+                 {72 | 3
+                -6  -> 24
+                 __
+                 12 
+                -12
+                 __
+                  0} 
+                 As you can see, our difference is 0, so it's end of solution, our answer is 24! Good Job.
+                 "
+                Your first message should contain motivation to start learning, whatever user says.
+                """
+            ))
+        return memory.messages
+    def setup_logging(self):
+        log_folder = "logs"
+        if not os.path.exists(log_folder):
+            os.makedirs(log_folder)
+
+        log_file = os.path.join(log_folder, "bot_log.txt")
+
+        logging.basicConfig(filename=log_file, level=logging.INFO,
+                            format='%(asctime)s - %(levelname)s - %(message)s')
+
+    def generate_response(self, chat_messages, debug = False):
+        response = self.chat(chat_messages).content
+        if debug:
+            logging.info("MEMORY: %s", chat_messages)
+            logging.info("RESPONSE: %s", response)
+
         return response
 
-    def get_attention(self,):
-        pass
+    # def start_practicing(self):
+    #     pass
+    #
+    # def answered_wrong(self,):
+    #     pass
+    #
+    # def answered_right(self,):
+    #     pass
 
-    def start_practicing(self):
-        pass
 
-    def answered_wrong(self,):
-        pass
-
-    def answered_right(self,):
-        pass
-
-    # def process_user_message(user_input, all_messages, debug=True):
-    #     delimiter = "```"
-    #
-    #     # Step 1: Check input to see if it flags the Moderation API or is a prompt injection
-    #     response = openai.Moderation.create(input=user_input)
-    #     moderation_output = response["results"][0]
-    #
-    #     if moderation_output["flagged"]:
-    #         print("Step 1: Input flagged by Moderation API.")
-    #         return "Sorry, we cannot process this request."
-    #
-    #     if debug: print("Step 1: Input passed moderation check.")
-    #
-    #     category_and_product_response = utils.find_category_and_product_only(user_input, utils.get_products_and_category())
-    #     #print(print(category_and_product_response)
-    #     # Step 2: Extract the list of products
-    #     category_and_product_list = utils.read_string_to_list(category_and_product_response)
-    #     #print(category_and_product_list)
-    #
-    #     if debug: print("Step 2: Extracted list of products.")
-    #
-    #     # Step 3: If products are found, look them up
-    #     product_information = utils.generate_output_string(category_and_product_list)
-    #     if debug: print("Step 3: Looked up product information.")
-    #
-    #     # Step 4: Answer the user question
+    # def check_motivated(self, response, messages):
     #     system_message = f"""
-    #     You are a customer service assistant for a large electronic store. \
-    #     Respond in a friendly and helpful tone, with concise answers. \
-    #     Make sure to ask the user relevant follow-up questions.
+    #     You are a math teacher that give individual lesson of column dividing to some kid. \
+    #     Your student needed motivation to continue learning.
+    #     Respond in a friendly tone, for motivating go back to learning based on his answer. \
+    #     Make sure to ask is kid ready to continue studying.
     #     """
     #     messages = [
     #         {'role': 'system', 'content': system_message},
-    #         {'role': 'user', 'content': f"{delimiter}{user_input}{delimiter}"},
-    #         {'role': 'assistant', 'content': f"Relevant product information:\n{product_information}"}
+    #         {'role': 'user', 'content': user_input},
     #     ]
-    #
-    #     final_response = get_completion_from_messages(all_messages + messages)
-    #     if debug:print("Step 4: Generated response to user question.")
-    #     all_messages = all_messages + messages[1:]
-    #
-    #     # Step 5: Put the answer through the Moderation API
-    #     response = openai.Moderation.create(input=final_response)
-    #     moderation_output = response["results"][0]
-    #
-    #     if moderation_output["flagged"]:
-    #         if debug: print("Step 5: Response flagged by Moderation API.")
-    #         return "Sorry, we cannot provide this information."
-    #
-    #     if debug: print("Step 5: Response passed moderation check.")
-    #
-    #     # Step 6: Ask the model if the response answers the initial user query well
-    #     user_message = f"""
-    #     Customer message: {delimiter}{user_input}{delimiter}
-    #     Agent response: {delimiter}{final_response}{delimiter}
-    #
-    #     Does the response sufficiently answer the question?
-    #     """
-    #     messages = [
-    #         {'role': 'system', 'content': system_message},
-    #         {'role': 'user', 'content': user_message}
-    #     ]
-    #     evaluation_response = get_completion_from_messages(messages)
-    #     if debug: print("Step 6: Model evaluated the response.")
-    #
-    #     # Step 7: If yes, use this answer; if not, say that you will connect the user to a human
-    #     if "Y" in evaluation_response:  # Using "in" instead of "==" to be safer for model output variation (e.g., "Y." or "Yes")
-    #         if debug: print("Step 7: Model approved the response.")
-    #         return final_response, all_messages
-    #     else:
-    #         if debug: print("Step 7: Model disapproved the response.")
-    #         neg_str = "I'm unable to provide the information you're looking for. I'll connect you with a human representative for further assistance."
-    #         return neg_str, all_messages
+    #     response = openai.ChatCompletion.create(
+    #         model='gpt-3.5-turbo',
+    #         messages=messages,
+    #         temperature=0.5, # this is the degree of randomness of the model's output
+    #     )
+    #     return response.choices[0].message["content"]
+
+    def offensive_input(self, chat_messages):
+        system_message = f"""
+        You are a math teacher that give individual lesson of column dividing to some kid, but instead of learning he says something, \
+        that didn't pass your moderation test.
+        Respond in a friendly tone, for motivating go back to learning based on his answer. \
+        It's very important to turn dialogue back to learning main topic of column division.
+        """
+        messages = [
+            SystemMessage(content = system_message),
+            HumanMessage(content = chat_messages[-1].content),
+        ]
+        final_response = self.chat(chat_messages + messages).content
+        logging.info("MODEL RESPONSE TO OFFENSIVE : %s", final_response)
+        return final_response
 
 
-def eval_with_rubric(test_set, assistant_answer):
+    def process_message(self, user_input, debug=True):
+        logging.info('Message processing')
+        response = openai.Moderation.create(input=user_input)
+        moderation_output = response["results"][0]
 
-    cust_msg = test_set['customer_msg']
-    context = test_set['context']
-    completion = assistant_answer
+        if moderation_output["flagged"]:
+            logging.info("Input FLAGGED by Moderation API.")
+            logging.info("USER INPUT : %s", user_input)
+            return False
 
-    system_message = """\
-    You are an assistant that evaluates how well the customer service agent \
-    answers a user question by looking at the context that the customer service \
-    agent is using to generate its response. 
-    """
+        if debug: logging.info("Input passed moderation check.")
 
-    user_message = f"""\
-You are evaluating a submitted answer to a question based on the context \
-that the agent uses to answer the question.
-Here is the data:
-    [BEGIN DATA]
-    ************
-    [Question]: {cust_msg}
-    ************
-    [Context]: {context}
-    ************
-    [Submission]: {completion}
-    ************
-    [END DATA]
+        return True
 
-Compare the factual content of the submitted answer with the context. \
-Ignore any differences in style, grammar, or punctuation.
-Answer the following questions:
-    - Is the Assistant response based only on the context provided? (Y or N)
-    - Does the answer include information that is not provided in the context? (Y or N)
-    - Is there any disagreement between the response and the context? (Y or N)
-    - Count how many questions the user asked. (output a number)
-    - For each question that the user asked, is there a corresponding answer to it?
-      Question 1: (Y or N)
-      Question 2: (Y or N)
-      ...
-      Question N: (Y or N)
-    - Of the number of questions asked, how many of these questions were addressed by the answer? (output a number)
-"""
 
-    messages = [
-        {'role': 'system', 'content': system_message},
-        {'role': 'user', 'content': user_message}
-    ]
-
-    response = True
-    return response
+# def eval_with_rubric(test_set, assistant_answer):
+#
+#     cust_msg = test_set['customer_msg']
+#     context = test_set['context']
+#     completion = assistant_answer
+#
+#     system_message = """\
+#     You are an assistant that evaluates how well the customer service agent \
+#     answers a user question by looking at the context that the customer service \
+#     agent is using to generate its response.
+#     """
+#
+#     user_message = f"""\
+# You are evaluating a submitted answer to a question based on the context \
+# that the agent uses to answer the question.
+# Here is the data:
+#     [BEGIN DATA]
+#     ************
+#     [Question]: {cust_msg}
+#     ************
+#     [Context]: {context}
+#     ************
+#     [Submission]: {completion}
+#     ************
+#     [END DATA]
+#
+# Compare the factual content of the submitted answer with the context. \
+# Ignore any differences in style, grammar, or punctuation.
+# Answer the following questions:
+#     - Is the Assistant response based only on the context provided? (Y or N)
+#     - Does the answer include information that is not provided in the context? (Y or N)
+#     - Is there any disagreement between the response and the context? (Y or N)
+#     - Count how many questions the user asked. (output a number)
+#     - For each question that the user asked, is there a corresponding answer to it?
+#       Question 1: (Y or N)
+#       Question 2: (Y or N)
+#       ...
+#       Question N: (Y or N)
+#     - Of the number of questions asked, how many of these questions were addressed by the answer? (output a number)
+# """
+#
+#     messages = [
+#         {'role': 'system', 'content': system_message},
+#         {'role': 'user', 'content': user_message}
+#     ]
+#
+#     response = True
+#     return response
 
 
