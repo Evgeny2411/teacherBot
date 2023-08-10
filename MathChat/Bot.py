@@ -1,11 +1,4 @@
 from langchain.chat_models import ChatOpenAI
-from langchain.prompts.chat import (
-    ChatPromptTemplate,
-    SystemMessagePromptTemplate,
-    AIMessagePromptTemplate,
-    HumanMessagePromptTemplate,
-)
-from langchain.chains import ConversationChain
 from langchain.memory import ChatMessageHistory
 import logging
 #
@@ -18,14 +11,25 @@ from dotenv import load_dotenv, find_dotenv
 import openai
 import os
 
-_ = load_dotenv(find_dotenv())
 
 class ColumnDivisionBot:
-    def __init__(self):
-        self.chat = ChatOpenAI(temperature = 0.5, openai_api_key=os.environ['OPENAI_API_KEY'])
-        self.setup_logging()
+    def __init__(self, debug = True):
+        self.debug = debug
+        dotenv_path = find_dotenv()
+        if dotenv_path:
+            _ = load_dotenv(dotenv_path)
+        self.chat = ChatOpenAI(temperature = 0.5, openai_api_key=os.getenv('OPENAI_API_KEY'))
+        try:
+            self.setup_logging()
+        except Exception as e:
+            # Handle the exception here (e.g. log the error, display an error message, etc.)
+            print(f"An error occurred: {str(e)}")
 
-    def init_messages(self):
+    def init_messages(self) -> []:
+        """
+        Initializes context of bot and instructions of how to explain topic
+        :return: array of messages history
+        """
         memory = ChatMessageHistory()
         memory.add_message(
             SystemMessage(
@@ -72,7 +76,10 @@ class ColumnDivisionBot:
             ))
         return memory.messages
     def setup_logging(self):
-        log_folder = "logs"
+        """
+        Setting up logging dir and formatting
+        """
+        log_folder = os.getenv('LOG_FOLDER', 'logs')
         if not os.path.exists(log_folder):
             os.makedirs(log_folder)
 
@@ -81,58 +88,89 @@ class ColumnDivisionBot:
         logging.basicConfig(filename=log_file, level=logging.INFO,
                             format='%(asctime)s - %(levelname)s - %(message)s')
 
-    def generate_response(self, chat_messages, debug = False):
+    def generate_chat_response(self, chat_messages: [], user_input: str) -> str:
+        """
+        Main method of getting bot response and returning it back to page
+
+        :param chat_messages: chat history messages from page
+        :param user_input: inputted request
+        :param debug: boolean var of logging
+        :return: response from bot to input message
+        """
+        processing_result = self.process_input(user_input)
+        if processing_result == 'Fine':
+            return self.generate_bot_response(chat_messages)
+        elif processing_result == 'Offensive':
+            return self.generate_offensive_response(chat_messages)
+        elif processing_result == 'Distracted':
+            return self.generate_attention_response(chat_messages)
+
+    def generate_bot_response(self, chat_messages: []) -> str:
+        """
+        Method to generate bot response based on chat messages
+
+        :param chat_messages: chat history messages from page
+        :return: response from bot to input message
+        """
         response = self.chat(chat_messages).content
-        if debug:
+        if self.debug:
             logging.info("MEMORY: %s", chat_messages)
             logging.info("RESPONSE: %s", response)
-
         return response
 
-    # def start_practicing(self):
-    #     pass
-    #
-    # def answered_wrong(self,):
-    #     pass
-    #
-    # def answered_right(self,):
-    #     pass
+    def no_activity_motivation(self, chat_messages: []) -> str:
+        """
+        Method of motivating student to keep learning in case of detecting inactivity.
+        Can't be called because of streamlit type of runnning
+        :param chat_messages: chat history messages from page
+        :return: motivation response from bot
+        """
+        system_message = f"""
+        Kid you trying to teach column division don't text anything for long time for some reason.
+        If you give some task to solve, ask is some tip for solving needed.
+        
+        If you don't give tasks to solve, motivate your student to back to learning by making some fun and interesting\
+        example of topic application.
+        """
+        messages = [
+            SystemMessage(content = system_message),
+        ]
+        final_response = self.generate_bot_response(chat_messages+messages)
+        if self.debug: logging.info("ACTIVITY LOST ANSWER : %s", final_response)
+        return final_response
 
-
-    # def check_motivated(self, response, messages):
-    #     system_message = f"""
-    #     You are a math teacher that give individual lesson of column dividing to some kid. \
-    #     Your student needed motivation to continue learning.
-    #     Respond in a friendly tone, for motivating go back to learning based on his answer. \
-    #     Make sure to ask is kid ready to continue studying.
-    #     """
-    #     messages = [
-    #         {'role': 'system', 'content': system_message},
-    #         {'role': 'user', 'content': user_input},
-    #     ]
-    #     response = openai.ChatCompletion.create(
-    #         model='gpt-3.5-turbo',
-    #         messages=messages,
-    #         temperature=0.5, # this is the degree of randomness of the model's output
-    #     )
-    #     return response.choices[0].message["content"]
-
-    def check_distraction(self, input):
+    def check_distraction(self, input: str) -> bool:
+        """
+        Check if user input trying to distract bot from learning
+        :param input: user text input
+        :return: boolean of distraction fact
+        """
         system_message = f"""
         You are friendly assistant at individual classes of math teacher bot and 4th grade kid.\
         Your task is to detect is kid trying to evade the topic and distract the teacher based on kid's message.
-        
+    
         Your answer must be Y or N for Y if kid is distracting, and N if not.
+        Do not provide any additional information except for Y/N symbol.
+        Answer:
         """
         messages = [
             SystemMessage(content = system_message),
             HumanMessage(content = f"Kid message: {input}"),
         ]
-        final_response = self.chat(messages).content
-        logging.info("DISTRACTION DETECTION : %s", final_response)
-        return final_response
+        final_response = self.generate_bot_response(messages)
+        if self.debug: 
+            logging.info("DISTRACTION DETECTION : %s", final_response)
+        if final_response not in ['Y', 'N']:
+            raise ValueError("Invalid response from chat")
+        return True if final_response == 'Y' else False
 
-    def offensive_input(self, chat_messages):
+    def generate_offensive_response(self, chat_messages: []) -> str:
+        """
+        Method to generate offensive response based on chat messages
+
+        :param chat_messages: chat history messages from page
+        :return: offensive response
+        """
         system_message = f"""
         You are a math teacher that give individual lesson of column dividing to some kid, but instead of learning he says something, \
         that didn't pass your moderation test.
@@ -144,12 +182,17 @@ class ColumnDivisionBot:
             SystemMessage(content = system_message),
             HumanMessage(content = chat_messages[-1].content),
         ]
-        final_response = self.chat(chat_messages + messages).content
-        logging.info("MODEL RESPONSE TO OFFENSIVE : %s", final_response)
+        final_response = self.generate_bot_response(chat_messages + messages)
+        if self.debug: logging.info("MODEL RESPONSE TO OFFENSIVE : %s", final_response)
         return final_response
 
-    def get_attention(self, chat_messages):
-        system_message = f"""
+    def generate_attention_response(self, chat_messages: []) -> str:
+        """
+        Generate a response to a distracting chat message
+        :param chat_messages: chat history messages from page
+        :return: bot answer
+        """
+        system_message = """
         You are a math teacher that give individual lesson of column dividing to some kid, but instead of learning he trying \
         to distract your attention from teaching.
         Respond in a friendly tone, for motivating go back to learning based on his answer by giving some\
@@ -160,78 +203,48 @@ class ColumnDivisionBot:
             SystemMessage(content = system_message),
             HumanMessage(content = chat_messages[-1].content),
         ]
-        final_response = self.chat(chat_messages + messages).content
-        logging.info("MODEL RESPONSE TO DISTRACTION : %s", final_response)
+        final_response = self.generate_bot_response(chat_messages + messages)
+        if self.debug: logging.info("MODEL RESPONSE TO DISTRACTION : %s", final_response)
         return final_response
 
 
-    def process_message(self, user_input, debug=True):
-        logging.info('Message processing')
-        response = openai.Moderation.create(input=user_input)
-        moderation_output = response["results"][0]
+    def process_input(self, user_input: str) -> str:
+        """
+        Check user input with moderation from openai model.
+        Check is user input trying to distract bot
+        :param user_input: user request
+        :param debug: boolean var of logging
+        :return: string to define sentiment of user input( "Offensive"/"Distracted"/"Fine")
+        """
+        if self.debug: logging.info('process_input')
+        moderation_output = self.perform_moderation_check(user_input)
 
         if moderation_output["flagged"]:
-            logging.info("Input FLAGGED by Moderation API.")
-            logging.info("USER INPUT : %s", user_input)
+            if self.debug:
+                logging.info("Input FLAGGED by Moderation API.")
+                logging.info("USER INPUT : %s", user_input)
             return 'Offensive'
 
-        if debug: logging.info("Input passed MODERATION check.")
+        if self.debug: logging.info("Input passed MODERATION check.")
 
         if 'Y' in self.check_distraction(user_input):
-            if debug: logging.info("Input failed DISTRACTION check.")
+            if self.debug: logging.info("Input failed DISTRACTION check.")
             return 'Distracted'
         else:
-            if debug: logging.info("Input passed DISTRACTION check.")
+            if self.debug: logging.info("Input passed DISTRACTION check.")
             return 'Fine'
 
+    def perform_moderation_check(self, user_input: str) -> dict:
+        """
+        Perform moderation check on user input using openai.Moderation.create
+        :param user_input: user request
+        :return: moderation output
+        """
+        response = openai.Moderation.create(input=user_input)
+        moderation_output = response["results"][0]
+        return moderation_output
 
-# def eval_with_rubric(test_set, assistant_answer):
-#
-#     cust_msg = test_set['customer_msg']
-#     context = test_set['context']
-#     completion = assistant_answer
-#
-#     system_message = """\
-#     You are an assistant that evaluates how well the customer service agent \
-#     answers a user question by looking at the context that the customer service \
-#     agent is using to generate its response.
-#     """
-#
-#     user_message = f"""\
-# You are evaluating a submitted answer to a question based on the context \
-# that the agent uses to answer the question.
-# Here is the data:
-#     [BEGIN DATA]
-#     ************
-#     [Question]: {cust_msg}
-#     ************
-#     [Context]: {context}
-#     ************
-#     [Submission]: {completion}
-#     ************
-#     [END DATA]
-#
-# Compare the factual content of the submitted answer with the context. \
-# Ignore any differences in style, grammar, or punctuation.
-# Answer the following questions:
-#     - Is the Assistant response based only on the context provided? (Y or N)
-#     - Does the answer include information that is not provided in the context? (Y or N)
-#     - Is there any disagreement between the response and the context? (Y or N)
-#     - Count how many questions the user asked. (output a number)
-#     - For each question that the user asked, is there a corresponding answer to it?
-#       Question 1: (Y or N)
-#       Question 2: (Y or N)
-#       ...
-#       Question N: (Y or N)
-#     - Of the number of questions asked, how many of these questions were addressed by the answer? (output a number)
-# """
-#
-#     messages = [
-#         {'role': 'system', 'content': system_message},
-#         {'role': 'user', 'content': user_message}
-#     ]
-#
-#     response = True
-#     return response
+
+
 
 
