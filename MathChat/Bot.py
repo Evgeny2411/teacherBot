@@ -8,7 +8,7 @@ import logging
 
 
 class ColumnDivisionBot:
-    def __init__(self, debug = True):
+    def __init__(self, debug = False):
         self.debug = debug
         dotenv_path = find_dotenv()
         if dotenv_path:
@@ -168,11 +168,11 @@ class ColumnDivisionBot:
         :param chat_messages: chat history messages from page
         :return: offensive response
         """
-        system_message = f"""
-        You are a math teacher that give individual lesson of column dividing to some kid, but instead of learning he says something, \
+        system_message = """
+        You are a math teacher that give individual lesson of column dividing to some kid, but instead of learning he says something,
         that didn't pass your moderation test.
-        Respond in a friendly tone, for motivating go back to learning based on his answer by giving some\
-         fun example why he must keep studying. \
+        Respond in a friendly tone, for motivating go back to learning based on his answer by giving some
+         fun example why he must keep studying. 
         It's very important to turn dialogue back to learning main topic of column division.
         """
         messages = [
@@ -190,10 +190,10 @@ class ColumnDivisionBot:
         :return: bot answer
         """
         system_message = """
-        You are a math teacher that give individual lesson of column dividing to some kid, but instead of learning he trying \
+        You are a math teacher that give individual lesson of column dividing to some kid, but instead of learning he trying
         to distract your attention from teaching.
-        Respond in a friendly tone, for motivating go back to learning based on his answer by giving some\
-         fun example why he must keep studying. \
+        Respond in a friendly tone, for motivating go back to learning based on his answer by giving some
+         fun example why he must keep studying. 
         It's very important to turn dialogue back to last task you gave and give student another try.
         """
         messages = [
