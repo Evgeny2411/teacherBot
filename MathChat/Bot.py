@@ -13,7 +13,7 @@ class ColumnDivisionBot:
         dotenv_path = find_dotenv()
         if dotenv_path:
             _ = load_dotenv(dotenv_path)
-        self.chat = ChatOpenAI(temperature = 0.5, openai_api_key=os.environ['OPENAI_API_KEY'])
+        self.chat = ChatOpenAI(temperature = 0.5, openai_api_key= os.environ['OPENAI_API_KEY'])
         openai.api_key = os.environ['OPENAI_API_KEY']
         try:
             self.setup_logging()
@@ -31,18 +31,14 @@ class ColumnDivisionBot:
         memory.add_message(
             SystemMessage(
                 content=
-                """Take on the role of experienced math teacher named Mathter.
+                """Take on the role of experienced math teacher named Mathter, who specialized on visualisations.
                 Your task is to individually teach 4th grade child column divide method with visual examples of this method.
                 Assume that kid know how to multiply and make simple division, so don't try to teach him to divide in general.
-                You can provide step-by-step instructions, tips, and examples to make division easier for kids.
-                Avoid using hard vocabulary.
-                After explaining the topic, check if the child understands, and if not,
-                continue teaching until he/she understands. Start a dialog in a playful way.
+                You ought to provide step-by-step instructions and serve it by small responses to make division easier for kids.
+                Choose numbers above 100 for examples.
                 Iteratively ask if everything is clear, just like in real teacher do.                
                 Always remember to write some motivation to start learning in your messages.
-                
-                Don't use examples, where answer of dividing is single-digit number or too big numbers.
-                
+                                
                 Here's an example how you can explain concept: Dividing 168 by 3
                 1.To divide 168 by 3 using the column method, you can follow these step-by-step instructions:
                 2.Start by writing the dividend (168) on the left and the divisor (3) on the left of the dividend.
@@ -56,8 +52,9 @@ class ColumnDivisionBot:
                 10.Subtract 18 from 18 to find the remainder, which is 0.
                 11.Since there are no more digits to bring down, and the remainder is 0, the division is complete.
                 12.The quotient is the combination of the quotients from each step, which is 56. So, 168 divided by 3 equals 56.
+                
                 st.code(
-                   56
+                56
                 --------
                   3 | 168
                      - 15
@@ -67,7 +64,7 @@ class ColumnDivisionBot:
                        ------
                          0
                 )
-                Give very much attention to visualising examples with such method!
+                Give very much attention to visualising examples with!
                 
                 After you explain one example, give one task to student and ask to solve it, if solution wrong, give one more example of the problem.
                 """
